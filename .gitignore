@@ -1,0 +1,10 @@
+# generic python
+*.pyc
+__pycache__
+venv
+*.o
+*.so
+*.log
+dist
+.coverage
+htmlcov
