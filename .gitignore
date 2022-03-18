@@ -8,3 +8,6 @@ venv
 dist
 .coverage
 htmlcov
+
+# google cloud credentials
+credentials.json
