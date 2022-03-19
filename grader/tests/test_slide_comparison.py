@@ -2,7 +2,6 @@
 checksummed. This test takes an example case, whose files are included in ./fixtures,
 and provides a proof of concept for this method."""
 
-from hashlib import md5
 from pathlib import Path
 
 import pytest
@@ -33,8 +32,8 @@ def incomplete_content() -> str:
 
 
 def test_incomplete_matches_template(template_content, incomplete_content):
-    md5(bytes(template_content, "utf8")) == md5(bytes(incomplete_content, "utf8"))
+    assert template_content == incomplete_content
 
 
 def test_complete_does_not_match_template(template_content, complete_content):
-    md5(bytes(template_content, "utf8")) == md5(bytes(complete_content, "utf8"))
+    assert template_content != complete_content
