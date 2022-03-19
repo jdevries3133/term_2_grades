@@ -1,8 +1,11 @@
 from functools import wraps
 import logging
+from pathlib import Path
 
 
 logger = logging.getLogger(__name__)
+
+BASE_DIR = Path(Path(__file__).parents[1])
 
 
 def retry(n_retries=5, handle_exc=Exception):

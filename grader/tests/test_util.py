@@ -53,3 +53,17 @@ def test_retry_mismatched_exception(n_times, raise_exc):
     # now, it's always 1 call, because the exception bubbles out of the wrapper
     # on the first call
     assert i.calls == 1
+
+
+def test_retry_does_not_touch_retval():
+    class C:
+        calls = 0
+
+        @retry()
+        def m(self):
+            self.calls += 1
+            return "SENTINEL"
+
+    i = C()
+
+    assert i.m() == "SENTINEL"

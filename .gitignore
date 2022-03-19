@@ -11,3 +11,6 @@ htmlcov
 
 # google cloud credentials
 credentials.json
+
+temp
+demo.docx
