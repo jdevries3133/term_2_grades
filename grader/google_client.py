@@ -1,5 +1,4 @@
 from copy import copy
-import json
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -19,6 +18,7 @@ class ClientWrapper:
     DEFAULT_SCOPES = [
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/presentations.readonly",
         "openid",
         "https://www.googleapis.com/auth/classroom.courses.readonly",
         "https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly",

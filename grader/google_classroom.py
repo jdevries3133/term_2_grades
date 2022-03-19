@@ -13,11 +13,13 @@ class GoogleClassroom:
         self,
         classroom_service,
         drive_service,
+        slides_service,
         match_assignments: list[str],
-        match_classrooms: list[str] = None,
+        match_classrooms: list[str],
     ):
         self.classroom = classroom_service
         self.drive = drive_service
+        self.slides = slides_service
         self._match_pats = match_classrooms or []
         self._match_assgt = match_assignments or []
 
@@ -86,7 +88,7 @@ class GoogleClassroom:
             )
         return submissions["studentSubmissions"]
 
-    def download_file(self, file_id: str, mime_type: str = "text/html"):
+    def download_file(self, file_id: str, mime_type):
         return self.drive.files().export(fileId=file_id, mimeType=mime_type).execute()
 
     def traverse_submissions(self):
@@ -98,46 +100,68 @@ class GoogleClassroom:
                 for submission in self.get_submissions(assignment):
                     yield classroom, assignment, submission
 
-    def get_content(self, assignment, file, mime_type="text/plain") -> tuple[str, str]:
-        """For a given assignment, return the content of a submission for a
-        given attachment. This returns a tuple of the teacher content, then
-        the student content."""
-        # impl: KeyErrors might bubble up
+    def get_student_profile(self, submission) -> dict:
+        return self.classroom.userProfiles().get(userId=submission["userId"]).execute()
 
-        student_content = self.download_file(
-            file["driveFile"]["id"],
+    def get_slides(self, submission, file) -> tuple[dict, dict]:
+        """Returns a tuple of two slideshow representations: the teacher slide,
+        then the student slide"""
+        student_slide = (
+            self.slides.presentations()
+            .get(presentationId=file["driveFile"]["id"])
+            .execute()
         )
+        parent_id = self.find_parent_id(submission, file)
+        teacher_slide = (
+            self.slides.presentations().get(presentationId=parent_id).execute()
+        )
+
+        return teacher_slide, student_slide
+
+    def find_parent_id(self, submission, file) -> str:
+        """For a given file in a submission, find the parent submission from
+        which it is derived. For example, navigate to the teacher template
+        from a google doc that a student submitted."""
 
         original_assignment = (
             self.classroom.courses()
             .courseWork()
-            .get(courseId=assignment["courseId"], id=assignment["courseWorkId"])
+            .get(courseId=submission["courseId"], id=submission["courseWorkId"])
             .execute()
         )
 
-        # if there is only one attachment on the original, we don't need to do
-        # any finegaling
+        # we need to try to find the matching file from the assignment to view
+        # the teacher template, or parent file, of the student submission
+
         n_att = len(original_assignment["materials"])
+
         if n_att == 0:
             raise ValueError("original assignment has no attachments")
+
+        # if there is only one attachment on the original, we don't need to do
+        # any finegaling
         if n_att == 1:
-            teacher_content = self.download_file(
-                original_assignment["materials"][0]["driveFile"]["driveFile"]["id"],
-                mime_type,
-            )
-            return teacher_content, student_content
+            return original_assignment["materials"][0]["driveFile"]["driveFile"]["id"]
 
         # google classroom uses the naming convention:
         #     <student name> - <original file name>
         # <original file name> should therefore be a substring of the student
-        # file's file name
+        # file's file name. We can try to find the original by iterating over
+        # all attachments.
         filename = file["driveFile"]["title"]
 
         for attachment in original_assignment["materials"]:
             if attachment["driveFile"]["title"] in filename:
-                teacher_content = self.download_file(
-                    attachment["driveFile"]["id"], mime_type
-                )
-                return teacher_content, student_content
+                return attachment["driveFile"]["id"]
 
-        raise ValueError(f"could not get content for assignment {assignment}")
+        raise ValueError(f"could not get content for assignment {submission}")
+
+    def get_content(self, submission, file, mime_type="text/plain") -> tuple[str, str]:
+        """For a given assignment, return the content of a submission for a
+        given attacjment. This returns a tuple of the teacher content, then
+        the student content."""
+
+        student_content = self.download_file(file["driveFile"]["id"], mime_type)
+        parent_id = self.find_parent_id(submission, file)
+        teacher_content = self.download_file(parent_id, mime_type)
+        return teacher_content, student_content
