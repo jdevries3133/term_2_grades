@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import logging
 from typing import Literal
 
@@ -11,49 +12,44 @@ helper = Helper.read_cache()
 logger = logging.getLogger(__name__)
 
 
-class SlideGrader:
+class ClassroomGrader(ABC):
     def __init__(
         self,
-        classroom_service,
-        drive_service,
-        slides_service,
+        services,
         *,
         assignment_name,
         match_classrooms,
-        match_assignments
+        match_assignments,
     ):
+        """See `GoogleClassroom` for details on `services`. `assignment_name`
+        is the value placed into the `GradeResult` objects returned by
+        `ClassroomGrader.grade_assignments`
+        """
         self.classroom = GoogleClassroom(
-            classroom_service,
-            drive_service,
-            slides_service,
+            services,
             match_classrooms=match_classrooms,
             match_assignments=match_assignments,
         )
         self.assignment_name = assignment_name
 
-    def grade_slides_for_completion(self) -> list[GradeResult]:
+    def grade_assignments(self) -> list[GradeResult]:
         result_map = {}
         for _, assignment, submission in self.classroom.traverse_submissions():
-
-            is_complete = self._is_slideshow_changed(submission)
+            method = self.grading_method(assignment)
+            grade = method(submission)  # type: ignore
             name = self.classroom.get_student_profile(submission)["name"]["fullName"]
 
             result_map.setdefault(name, {})
-            result_map[name][assignment["title"]] = is_complete
-            logger.debug(
-                "{name} {status} complete {assignment_name}".format(
-                    name=name,
-                    status="did" if is_complete else "did not",
-                    assignment_name=assignment["title"],
-                )
-            )
+            result_map[name][assignment["title"]] = grade
+
+            self.log_grade(name, grade, assignment)
 
         retval: list[GradeResult] = []
 
         for name, result in result_map.items():
             n_complete = 0
-            for is_complete in result.values():
-                if is_complete:
+            for grade in result.values():
+                if grade:
                     n_complete += 1
             n_complete_to_grade: dict[int, Literal[0, 15, 20]] = {0: 0, 1: 15, 2: 20}
             retval.append(
@@ -66,7 +62,18 @@ class SlideGrader:
 
         return retval
 
-    def _is_slideshow_changed(self, submission) -> bool:
+    @abstractmethod
+    def grading_method(self, assignment):
+        """For a given assignment, return the correct grading method"""
+
+    def is_form_submitted(self, submission: dict) -> bool:
+        """Grading method for google forms. This assumes that the form grades
+        were already imported, and it returns a boolean indicating completion
+        (was the form submitted or not)"""
+        return bool(submission.get("draftGrade"))
+
+    def is_slideshow_changed(self, submission) -> bool:
+        """Grading method for google slides (completion)"""
         # ensure that there is exactly one attachment on the submission
         if "attachments" not in submission["assignmentSubmission"]:
             return False
@@ -82,20 +89,18 @@ class SlideGrader:
         )
         return teacher["slides"][1] != student["slides"][1]
 
-
-def week_20(classroom, drive, slides) -> list[GradeResult]:
-    grader = SlideGrader(
-        classroom,
-        drive,
-        slides,
-        assignment_name="Week 20",
-        match_classrooms=[
-            r"4th Grade General Music",
-        ],
-        match_assignments=[r"Week 20 Day \d Do-Now"],
-    )
-    return grader.grade_slides_for_completion()
-
-
-def week_21(classroom, drive) -> list[GradeResult]:
-    return []
+    def log_grade(self, name, grade, assignment):
+        if isinstance(grade, bool):
+            logger.debug(
+                "{name} {status} complete {assignment_name}".format(
+                    name=name,
+                    status="did" if grade else "did not",
+                    assignment_name=assignment["title"],
+                )
+            )
+        else:
+            logger.debug(
+                "{name} recieved grade of {grade} on {assignment_name}".format(
+                    name=name, grade=grade, assignment_name=assignment["title"]
+                )
+            )

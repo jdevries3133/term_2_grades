@@ -11,22 +11,41 @@ logger = logging.getLogger(__name__)
 class GoogleClassroom:
     def __init__(
         self,
-        classroom_service,
-        drive_service,
-        slides_service,
-        match_assignments: list[str],
-        match_classrooms: list[str],
+        services,
+        *,
+        match_assignments: list[str] = None,
+        match_classrooms: list[str] = None,
     ):
-        self.classroom = classroom_service
-        self.drive = drive_service
-        self.slides = slides_service
+        """`services` is a dict with keys `classroom`, `slides`, and `drive`,
+        referring to the service objects from the google client APIs. Classroom
+        is the only required services. If slides or drive are not passed in,
+        ValueErrors will be thrown at runtime if methods that use them are
+        called and they are not present."""
+        self.classroom = services.get("classroom")
+        if not self.classroom:
+            raise ValueError("classroom service is required")
+
+        self._drive = services.get("drive")
+        self._slides = services.get("slides")
         self._match_pats = match_classrooms or []
         self._match_assgt = match_assignments or []
 
-        # mapping of assignment ids to their html content, to avoid repetitive
+        # mapping of assignment ids to teacher content, to avoid repetitive
         # google drive exports
-        # TODO: implement me!
+        # TODO: implement me! this is currently unused
         self._teacher_content_cache = {}
+
+    @property
+    def drive(self):
+        if self._drive:
+            return self._drive
+        raise ValueError("drive service was not passed to __init__")
+
+    @property
+    def slides(self):
+        if self._slides:
+            return self._slides
+        raise ValueError("slides service was not passed to __init__")
 
     def get_classrooms(self) -> list[dict]:
         """Return the classrooms that match self._match_pats.
@@ -93,8 +112,7 @@ class GoogleClassroom:
 
     def traverse_submissions(self):
         """Yields current classroom, assignment, and submission resource
-        while traversing all courseWorkSubmission according to configuration
-        on initialization."""
+        while traversing all courseWorkSubmissions."""
         for classroom in self.get_classrooms():
             for assignment in self.get_assignments(classroom):
                 for submission in self.get_submissions(assignment):
