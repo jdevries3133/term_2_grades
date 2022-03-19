@@ -68,7 +68,7 @@ class SlideGrader:
 
     def _is_slideshow_changed(self, submission) -> bool:
         # ensure that there is exactly one attachment on the submission
-        if 'attachments' not in submission['assignmentSubmission']:
+        if "attachments" not in submission["assignmentSubmission"]:
             return False
         if len(submission["assignmentSubmission"]["attachments"]) < 1:
             return False
