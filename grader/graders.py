@@ -4,7 +4,7 @@ from typing import Literal
 
 from teacherhelper import Helper
 
-from .google_classroom import GoogleClassroom
+from .google_classroom import GoogleClassroomApiWrapper
 from .entities import GradeResult
 
 
@@ -25,7 +25,7 @@ class ClassroomGrader(ABC):
         is the value placed into the `GradeResult` objects returned by
         `ClassroomGrader.grade_assignments`
         """
-        self.classroom = GoogleClassroom(
+        self.classroom = GoogleClassroomApiWrapper(
             services,
             match_classrooms=match_classrooms,
             match_assignments=match_assignments,
