@@ -15,3 +15,5 @@ credentials.json
 temp
 *.docx
 *.csv
+
+overrides.yml
