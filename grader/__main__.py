@@ -159,9 +159,13 @@ def main():
                 wk_21_grade=cast(Literal[20, 15, 0], assgt_to_result.get("week 21", 0)),
             )
 
-            assert page.wk_19_grade in (20, 15, 10, 0)
-            assert page.wk_20_grade in (20, 15, 0)
-            assert page.wk_21_grade in (20, 15, 0)
+            try:
+                assert page.wk_19_grade in (20, 15, 10, 0)
+                assert page.wk_20_grade in (20, 15, 0)
+                assert page.wk_21_grade in (20, 15, 0)
+            except AssertionError:
+                print(f"will not write invalid page: {page}")
+                continue
 
             print(f"prepped page {page}")
             pages.append(page)
@@ -218,8 +222,12 @@ def main():
                 wk_21_grade=cast(Literal[20, 0], assgt_to_result.get("week 21", 0)),
             )
 
-            assert page.wk_20_grade in (20, 15, 10, 0)
-            assert page.wk_21_grade in (20, 0)
+            try:
+                assert page.wk_20_grade in (20, 15, 10, 0)
+                assert page.wk_21_grade in (20, 0)
+            except AssertionError:
+                print(f"will not write invalid page: {page}")
+                continue
 
             print(f"prepped page for {page.student.name}: {page}")
             pages.append(page)
