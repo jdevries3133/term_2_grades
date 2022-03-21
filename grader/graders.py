@@ -35,14 +35,19 @@ class ClassroomGrader(ABC):
     def grade_assignments(self) -> list[GradeResult]:
         result_map = {}
         for _, assignment, submission in self.classroom.traverse_submissions():
-            method = self.grading_method(assignment)
-            grade = method(submission)  # type: ignore
-            name = self.classroom.get_student_profile(submission)["name"]["fullName"]
+            try:
+                method = self.grading_method(assignment)
+                grade = method(submission)  # type: ignore
+                name = self.classroom.get_student_profile(submission)["name"]["fullName"]
 
-            result_map.setdefault(name, {})
-            result_map[name][assignment["title"]] = grade
+                result_map.setdefault(name, {})
+                result_map[name][assignment["title"]] = grade
 
-            self.log_grade(name, grade, assignment)
+                self.log_grade(name, grade, assignment)
+            except Exception as e:
+                logger.exception('grading failed')
+                logger.debug('assignment: %s', assignment)
+                logger.debug('submission: %s', submission)
 
         retval: list[GradeResult] = []
 
@@ -99,7 +104,15 @@ class ClassroomGrader(ABC):
             submission,
             submission["assignmentSubmission"]["attachments"][0],
         )
-        return teacher["slides"][1] != student["slides"][1]
+        try:
+            return teacher["slides"][1] != student["slides"][1]
+        except KeyError:
+            logger.exception('cannot compare slides')
+            logger.debug('teacher %s', teacher)
+            logger.debug('student %s', student)
+
+            # fail upwards; mark the student as having done thd assignment
+            return True
 
     def log_grade(self, name, grade, assignment):
         if isinstance(grade, bool):

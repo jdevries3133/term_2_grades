@@ -32,11 +32,23 @@ class Week20And21Grader(ClassroomGrader):
 
 
 def setup_logging():
+    info = logging.FileHandler(filename="info.log")
+    info.setLevel(logging.INFO)
+    debug = logging.FileHandler(filename="debug.log")
+    debug.setLevel(logging.DEBUG)
     console = logging.StreamHandler()
     console.setLevel(logging.DEBUG)
+
     formatter = logging.Formatter("%(name)-12s: %(levelname)-8s %(message)s")
+
     console.setFormatter(formatter)
+    debug.setFormatter(formatter)
+    info.setFormatter(formatter)
+
     logging.getLogger("").addHandler(console)
+    logging.getLogger("").addHandler(info)
+    logging.getLogger("").addHandler(debug)
+
     logging.getLogger("grader").setLevel(logging.DEBUG)
 
 
