@@ -38,16 +38,18 @@ class ClassroomGrader(ABC):
             try:
                 method = self.grading_method(assignment)
                 grade = method(submission)  # type: ignore
-                name = self.classroom.get_student_profile(submission)["name"]["fullName"]
+                name = self.classroom.get_student_profile(submission)["name"][
+                    "fullName"
+                ]
 
                 result_map.setdefault(name, {})
                 result_map[name][assignment["title"]] = grade
 
                 self.log_grade(name, grade, assignment)
-            except Exception as e:
-                logger.exception('grading failed')
-                logger.debug('assignment: %s', assignment)
-                logger.debug('submission: %s', submission)
+            except Exception:
+                logger.exception("grading failed")
+                logger.debug("assignment: %s", assignment)
+                logger.debug("submission: %s", submission)
 
         retval: list[GradeResult] = []
 
@@ -107,9 +109,9 @@ class ClassroomGrader(ABC):
         try:
             return teacher["slides"][1] != student["slides"][1]
         except KeyError:
-            logger.exception('cannot compare slides')
-            logger.debug('teacher %s', teacher)
-            logger.debug('student %s', student)
+            logger.exception("cannot compare slides")
+            logger.debug("teacher %s", teacher)
+            logger.debug("student %s", student)
 
             # fail upwards; mark the student as having done thd assignment
             return True
