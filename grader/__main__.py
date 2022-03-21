@@ -1,5 +1,4 @@
 import csv
-from dataclasses import fields
 import logging
 from typing import cast, Literal
 
@@ -21,13 +20,13 @@ class Week20And21Grader(ClassroomGrader):
         dispatching."""
 
         assgt_name = assignment["title"]
+        # this is the fifth grade assignment
+        if assgt_name == "Week 21":
+            return self.is_slideshow_changed
         if "week 20" in assgt_name.lower():
             return self.is_slideshow_changed
         if "week 21" in assgt_name.lower():
             return self.is_form_submitted
-        # this is the fifth grade assignment
-        if assgt_name == "Week 20":
-            return self.is_slideshow_changed
 
         raise ValueError(f"there is no method for grading {assgt_name}")
 
@@ -49,6 +48,7 @@ def get_services():
 
 
 def week_20(classroom, drive, slides) -> list[GradeResult]:
+    """4th, 6th, and 7th grade do-now, which was a google slide"""
     grader = Week20And21Grader(
         {
             "classroom": classroom,
@@ -65,6 +65,7 @@ def week_20(classroom, drive, slides) -> list[GradeResult]:
 
 
 def week_21(classroom) -> list[GradeResult]:
+    """4th, 6th, and 7th grade do-now, which was a google form"""
     classroom_helper = Week20And21Grader(
         {"classroom": classroom},
         assignment_name="week 21",
@@ -77,16 +78,17 @@ def week_21(classroom) -> list[GradeResult]:
     return results
 
 
-def week_20_gr_5(classroom, drive, slides):
+def week_21_gr_5(classroom, drive, slides):
+    """5th grade do-now, which was a goodle form"""
     grader = Week20And21Grader(
         {
             "classroom": classroom,
             "drive": drive,
             "slides": slides,
         },
-        assignment_name="week 20",
+        assignment_name="week 21",
         match_classrooms=[r"5th Grade General Music"],
-        match_assignments=[r"Week 20"],
+        match_assignments=[r"Week 21"],
     )
     results = grader.grade_assignments()
     print("finished getting week 20 grade 5 results")
@@ -96,10 +98,11 @@ def week_20_gr_5(classroom, drive, slides):
 def main():
     setup_logging()
     classroom, drive, slides = get_services()
+    print("starting grading")
     results = [
         *week_19(),
         *week_20(classroom, drive, slides),
-        *week_20_gr_5(classroom, drive, slides),
+        *week_21_gr_5(classroom, drive, slides),
         *week_21(classroom),
     ]
 
@@ -114,24 +117,28 @@ def main():
     homerooms = sorted(helper.homerooms.values(), key=lambda i: (i.grade_level, i.teacher))  # type: ignore
     all_pages = []
     for hr in homerooms:
+        if hr.grade_level == 5:
+            continue
+
         # a bit leaky but oh well
         writer.doc.add_page_break()
         writer.doc.add_heading(hr.teacher)
 
         pages = []
         for s in hr.students:
+
             student_results = mapping.get(s.name)
             if student_results is None:
-                print("Student has no results: %s", s.name)
+                print(f"Student has no results: {s.name}")
                 pages.append(
-                    Page(student=s.name, wk_19_grade=0, wk_20_grade=0, wk_21_grade=0)
+                    Page(student=s, wk_19_grade=0, wk_20_grade=0, wk_21_grade=0)
                 )
                 continue
 
             assgt_to_result = {r.assignment: r.grade for r in student_results}
 
             page = Page(
-                student=s.name,
+                student=s,
                 # cast grade, which we validate with assert statements below
                 wk_19_grade=cast(
                     Literal[20, 15, 10, 0], assgt_to_result.get("week 19", 0)
@@ -139,15 +146,10 @@ def main():
                 wk_20_grade=cast(Literal[20, 15, 0], assgt_to_result.get("week 20", 0)),
                 wk_21_grade=cast(Literal[20, 15, 0], assgt_to_result.get("week 21", 0)),
             )
-            if s.name == 'Michael Lee':
-                breakpoint()
 
-            try:
-                assert page.wk_19_grade in (20, 15, 10, 0)
-                assert page.wk_20_grade in (20, 15, 0)
-                assert page.wk_21_grade in (20, 15, 0)
-            except AssertionError:
-                breakpoint()
+            assert page.wk_19_grade in (20, 15, 10, 0)
+            assert page.wk_20_grade in (20, 15, 0)
+            assert page.wk_21_grade in (20, 15, 0)
 
             print(f"prepped page {page}")
             pages.append(page)
@@ -159,10 +161,70 @@ def main():
     writer.doc.save("output.docx")
     with open("output.csv", "w") as fp:
         writer = csv.writer(fp)
-        page_fields = fields(Page)
-        writer.writerow(f.name for f in page_fields)
+        writer.writerow(("name", "w19", "w20", "w21", "total"))
         writer.writerows(
-            [getattr(page, f.name) for f in page_fields] for page in all_pages
+            [
+                (
+                    p.student.name,
+                    p.wk_19_grade,
+                    p.wk_20_grade,
+                    p.wk_21_grade,
+                    p.total_grade,
+                )
+                for p in all_pages
+            ]
+        )
+
+    writer = DocWriter(type="fifth")
+    all_pages = []
+    for hr in homerooms:
+        if hr.grade_level != 5:
+            continue
+
+        # a bit leaky but oh well
+        writer.doc.add_page_break()
+        writer.doc.add_heading(hr.teacher)
+
+        pages = []
+        for s in hr.students:
+            student_results = mapping.get(s.name)
+            if student_results is None:
+                print(f"Student has no results: {s.name}")
+                pages.append(
+                    Page(student=s, wk_19_grade=0, wk_20_grade=0, wk_21_grade=0)
+                )
+                continue
+
+            assgt_to_result = {r.assignment: r.grade for r in student_results}
+
+            page = Page(
+                student=s,
+                wk_19_grade=0,  # this is internally dropped for fifth
+                wk_20_grade=cast(
+                    Literal[20, 15, 10, 0], assgt_to_result.get("week 20", 0)
+                ),
+                wk_21_grade=cast(Literal[20, 0], assgt_to_result.get("week 21", 0)),
+            )
+
+            assert page.wk_20_grade in (20, 15, 10, 0)
+            assert page.wk_21_grade in (20, 0)
+
+            print(f"prepped page for {page.student.name}: {page}")
+            pages.append(page)
+            all_pages.append(page)
+
+        writer.add_pages(pages)
+        print(f"homeroom {hr.teacher} complete")
+
+    writer.doc.save("output_fifth.docx")
+    with open("output_fifth.csv", "w") as fp:
+        writer = csv.writer(fp)
+        writer.writerow(("name", "w20", "w21", "total"))
+        writer.writerows(
+            [
+                (p.student.name, p.wk_20_grade, p.wk_21_grade, p.total_grade)
+                for p in all_pages
+            ]
         )
 
 

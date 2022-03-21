@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from docx import Document
 from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml
+from teacherhelper.entities import Student
 
 from grader.utils import BASE_DIR
 
@@ -17,20 +18,28 @@ logger = logging.getLogger(__name__)
 
 
 TEMPLATE = BASE_DIR / "grader" / "assets" / "rubric.docx"
+FIFTH_TEMPLATE = BASE_DIR / "grader" / "assets" / "rubric_fifth.docx"
 
 
 @dataclass
 class Page:
-    student: str
+    student: Student
     wk_19_grade: Literal[20, 15, 10, 0]
-    wk_20_grade: Literal[20, 15, 0]
+
+    # fifth can get a 10 on week 20. Others can only get 20/15/0. This is
+    # enforced by runtime checks externally
+    # TODO: move these runtime checks into this module
+    wk_20_grade: Literal[20, 15, 10, 0]
     wk_21_grade: Literal[20, 15, 0]
     notes: Union[str, None] = None
 
     @property
     def total_grade(self):
-        # 40 is the combined value of the poster and presentation
-        return 40 + self.wk_19_grade + self.wk_20_grade + self.wk_21_grade
+        # `other_stuff` are the things in the rubric whose value is fixed. This
+        # is different for fifth grade, because they have music fewer times
+        # each week.
+        other_stuff = 20 if self.student.grade_level == 5 else 40
+        return other_stuff + self.wk_19_grade + self.wk_20_grade + self.wk_21_grade
 
 
 class DocWriter:
@@ -38,16 +47,24 @@ class DocWriter:
     # shading the column on the right
     grade_to_col_mapping = {0: 1, 10: 2, 15: 3, 20: 4}
 
-    def __init__(self):
-        self.doc = Document(TEMPLATE)
+    def __init__(self, type=None):
+        self.type = type
+
+        if self.type != "fifth":
+            self.doc = Document(TEMPLATE)
+        else:
+            self.doc = Document(FIFTH_TEMPLATE)
 
     def add_page(self, page: Page):
         self.doc.add_page_break()
         self.doc.add_heading("Virtual Piano Project Feedback")
-        par = self.doc.add_paragraph(f"Name: {page.student}")
+        par = self.doc.add_paragraph(f"Name: {page.student.name}")
         par._p.addnext(self._template_table)
 
-        self._insert_grade("<week 19>", page.wk_19_grade)
+        # fifth graders don't have this in their template
+        if self.type != "fifth":
+            self._insert_grade("<week 19>", page.wk_19_grade)
+
         self._insert_grade("<week 20>", page.wk_20_grade)
         self._insert_grade("<week 21>", page.wk_21_grade)
         self._replace_table_text(
@@ -60,7 +77,7 @@ class DocWriter:
     def add_pages(self, pages: Sequence[Page]):
         for page in pages:
             self.add_page(page)
-            logger.debug("wrote page for %s", page.student)
+            logger.debug("wrote page for %s", page.student.name)
 
     def _insert_grade(self, template_target: str, value: int):
         _, i_row, _ = self._replace_table_text(

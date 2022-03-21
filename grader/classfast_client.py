@@ -19,7 +19,7 @@ helper = Helper.read_cache()
 
 # I just run this script against the development build running on my laptop so
 # I can easily patch bugs and make data changes as I go
-BASE_URI = "http://localhost:8000"
+BASE_URI = "https://beta.classfast.app"
 
 
 # primary keys of the grading sessions we need.
@@ -39,6 +39,7 @@ def authenticate() -> Session:
 
 
 def week_19() -> list[GradeResult]:
+    """Technically, this also gets wk 20 for grade 5."""
     retval: list[GradeResult] = []
     session = authenticate()
     for pk in PKS:
@@ -53,7 +54,7 @@ def week_19() -> list[GradeResult]:
             retval.append(
                 GradeResult(
                     student=student,
-                    assignment="week 19",
+                    assignment="week 20" if student.grade_level == 5 else "week 19",
                     grade=submission["grade"],
                 )
             )

@@ -51,16 +51,23 @@ class ClassroomGrader(ABC):
             for grade in result.values():
                 if grade:
                     n_complete += 1
+            # TODO: leaky abstraction; this should be a separate method
             n_complete_to_grade: dict[int, Literal[0, 15, 20]] = {0: 0, 1: 15, 2: 20}
             student = helper.find_nearest_match(name)  # type: ignore
             if student is None:
                 logger.warning("no match for %s. skipping", name)
                 continue
+
+            # TODO: consequences of the leaky abstraction
+            grade = n_complete_to_grade[n_complete]
+            if student.grade_level == 5 and "Week 21" in result:
+                if n_complete > 0:
+                    grade = 20
+                else:
+                    grade = 0
             retval.append(
                 GradeResult(
-                    student=student,
-                    assignment=self.assignment_name,
-                    grade=n_complete_to_grade[n_complete],
+                    student=student, assignment=self.assignment_name, grade=grade
                 )
             )
 
@@ -77,7 +84,8 @@ class ClassroomGrader(ABC):
         return bool(submission.get("draftGrade"))
 
     def is_slideshow_changed(self, submission) -> bool:
-        """Grading method for google slides (completion)"""
+        """Grading method for google slides (completion). Note that this always
+        only checks the second slide, which is where I typically put my do-nows"""
         # ensure that there is exactly one attachment on the submission
         if "attachments" not in submission["assignmentSubmission"]:
             return False
