@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 class GoogleClassroomApiWrapper:
     """Wrapper for the google classroom API, which also optionally makes calls
     to the drive and slides API"""
+
     def __init__(
         self,
         services,

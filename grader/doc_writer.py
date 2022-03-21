@@ -2,6 +2,7 @@
 the output document of all student results, which will be returned to students."""
 
 from copy import deepcopy
+import logging
 from typing import Literal, Sequence, Union
 from dataclasses import dataclass
 
@@ -10,6 +11,9 @@ from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml
 
 from grader.utils import BASE_DIR
+
+
+logger = logging.getLogger(__name__)
 
 
 TEMPLATE = BASE_DIR / "grader" / "assets" / "rubric.docx"
@@ -46,7 +50,9 @@ class DocWriter:
         self._insert_grade("<week 19>", page.wk_19_grade)
         self._insert_grade("<week 20>", page.wk_20_grade)
         self._insert_grade("<week 21>", page.wk_21_grade)
-        self._replace_table_text("<total>", str(page.total_grade))
+        self._replace_table_text(
+            "<total>", str(page.total_grade), search_tables=[self.doc.tables[-1]]
+        )
 
         if page.notes is not None:
             self.doc.add_paragraph(f"Notes: {page.notes}")
@@ -54,20 +60,23 @@ class DocWriter:
     def add_pages(self, pages: Sequence[Page]):
         for page in pages:
             self.add_page(page)
+            logger.debug("wrote page for %s", page.student)
 
     def _insert_grade(self, template_target: str, value: int):
-        i_table, i_row, _ = self._replace_table_text(template_target, str(value))
+        _, i_row, _ = self._replace_table_text(
+            template_target, str(value), search_tables=[self.doc.tables[-1]]
+        )
         i_cell = self.grade_to_col_mapping[value]
-        cell = self.doc.tables[i_table].rows[i_row].cells[i_cell]
+        cell = self.doc.tables[-1].rows[i_row].cells[i_cell]
         self.highlight_cell(cell)
 
-    def _replace_table_text(self, search, replace: str):
+    def _replace_table_text(self, search, replace: str, search_tables=None):
         """Returns the index of the table, row, and cell that the text was
-        found in."""
-        # our first page is the template, so we always skip it. We always want
-        # to preserve that original template
-        for i, table in enumerate(self.doc.tables[1:]):
-            i += 1
+        found in. If `search_tables` is specified, the returned table index
+        refers to the passed-in list, not tables in the whole document."""
+        if search_tables is None:
+            search_tables = self.doc.tables
+        for i, table in enumerate(search_tables):
             for j, row in enumerate(table.rows):
                 for k, paragraph in enumerate(row.cells):
                     if search in paragraph.text:

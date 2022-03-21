@@ -52,9 +52,13 @@ class ClassroomGrader(ABC):
                 if grade:
                     n_complete += 1
             n_complete_to_grade: dict[int, Literal[0, 15, 20]] = {0: 0, 1: 15, 2: 20}
+            student = helper.find_nearest_match(name)  # type: ignore
+            if student is None:
+                logger.warning("no match for %s. skipping", name)
+                continue
             retval.append(
                 GradeResult(
-                    student=helper.find_nearest_match(name),  # type: ignore
+                    student=student,
                     assignment=self.assignment_name,
                     grade=n_complete_to_grade[n_complete],
                 )
@@ -92,9 +96,9 @@ class ClassroomGrader(ABC):
     def log_grade(self, name, grade, assignment):
         if isinstance(grade, bool):
             logger.debug(
-                "{name} {status} complete {assignment_name}".format(
+                "{name} {status} {assignment_name}".format(
                     name=name,
-                    status="did" if grade else "did not",
+                    status="completed" if grade else "did not complete",
                     assignment_name=assignment["title"],
                 )
             )

@@ -13,4 +13,5 @@ htmlcov
 credentials.json
 
 temp
-demo.docx
+*.docx
+*.csv

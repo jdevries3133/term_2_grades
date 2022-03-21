@@ -66,3 +66,7 @@ _client = ClientWrapper()
 
 def get_service(service, version):
     return _client.get_service(service, version)
+
+
+def get_credentials():
+    return _client.get_credentials()
