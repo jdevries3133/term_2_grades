@@ -1,4 +1,5 @@
 import pytest
+from teacherhelper.entities import Student
 
 from ..doc_writer import DocWriter, Page
 
@@ -8,21 +9,34 @@ def writer():
     return DocWriter()
 
 
-def test_add_page(writer):
-    writer.add_page(Page(student="joey", wk_19_grade=10, wk_20_grade=15, wk_21_grade=0))
+@pytest.fixture
+def guido():
+    return Student({'first_name': 'Guido', 'last_name': 'VanMorrison'})
+
+@pytest.fixture
+def timmy():
+    return Student({'first_name': 'Tim', 'last_name': 'Peters'})
+
+@pytest.fixture
+def joey():
+    return Student({'first_name': 'Joey', 'last_name':  'Jones'})
+
+
+def test_add_page(writer, joey):
+    writer.add_page(Page(student=joey, wk_19_grade=10, wk_20_grade=15, wk_21_grade=0))
 
     # a table was added
     assert len(writer.doc.tables) == 2
-    assert writer.doc.paragraphs[7].text == "Name: joey"
+    assert writer.doc.paragraphs[7].text == f"Name: {joey.name}"
     assert writer.doc.tables[1].rows[1].cells[-1].paragraphs[0].text == "10"
     assert writer.doc.tables[1].rows[2].cells[-1].paragraphs[0].text == "15"
     assert writer.doc.tables[1].rows[3].cells[-1].paragraphs[0].text == "0"
 
 
-def test_page_with_notes(writer):
+def test_page_with_notes(writer, timmy):
     writer.add_page(
         Page(
-            student="tim",
+            student=timmy,
             wk_19_grade=10,
             wk_20_grade=15,
             wk_21_grade=15,
@@ -36,22 +50,15 @@ def test_page_with_notes(writer):
     )
 
 
-def test_add_pages(writer):
+def test_add_pages(writer, joey, guido, timmy):
     writer.add_pages(
         [
-            Page(student="joey", wk_19_grade=10, wk_20_grade=15, wk_21_grade=0),
-            Page(student="timmy", wk_19_grade=10, wk_20_grade=20, wk_21_grade=0),
-            Page(student="tammy", wk_19_grade=15, wk_20_grade=20, wk_21_grade=15),
-            Page(
-                student="tummy",
-                wk_19_grade=20,
-                wk_20_grade=20,
-                wk_21_grade=20,
-                notes="Awesome work!",
-            ),
+            Page(student=joey, wk_19_grade=10, wk_20_grade=15, wk_21_grade=0),
+            Page(student=timmy, wk_19_grade=10, wk_20_grade=20, wk_21_grade=0),
+            Page(student=guido, wk_19_grade=15, wk_20_grade=20, wk_21_grade=15),
         ]
     )
 
-    assert len(writer.doc.tables) == 5
+    assert len(writer.doc.tables) == 4
     # spot check data
     assert writer.doc.tables[1].rows[1].cells[-1].text == "10"
