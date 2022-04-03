@@ -1,16 +1,18 @@
 import csv
+from difflib import ndiff
 import logging
 from typing import cast, Literal
 
-from teacherhelper.helper import Helper
+import yaml
+
+from grader.entities import Config
 
 from .classfast_client import week_19
 from .google_client import get_service
 from .graders import ClassroomGrader, GradeResult
 from .doc_writer import DocWriter, Page
-
-
-helper = Helper.read_cache()
+from .teacherhelper_proxy import helper
+from .utils import BASE_DIR
 
 
 class Week20And21Grader(ClassroomGrader):
@@ -50,6 +52,65 @@ def setup_logging():
     logging.getLogger("").addHandler(debug)
 
     logging.getLogger("grader").setLevel(logging.DEBUG)
+
+
+def load_config() -> Config:
+    with open(BASE_DIR / "config.yml", "r") as fp:
+        data = yaml.safe_load(fp)
+        return Config(**data)
+
+
+def apply_grade_level_overrides(config: Config):
+    """Applies grade-level overrides specified in overrides.yml"""
+    matched = set()
+    for s in helper.students.values():
+        if level := config.grade_overrides.get(s.name):
+            s.grade_level = level
+            matched.add(s.name)
+
+    # a bit of validation – we can make sure every override was matched by
+    # asserting that every name is now in `matched`
+    if not matched == (all_ := set(k for k in config.grade_overrides)):
+        print(
+            "Warning: not all grades were matched. "
+            f"Differing elements: {matched.symmetric_difference(all_)}"
+        )
+
+
+def apply_grade_overrides(results: list[GradeResult], config: Config):
+    """Apply grade overrides for single assignments. Does not handle overrides
+    for total grades, because `list[GradeResult]` cannot propagage that
+    information.
+
+    This function mutates `results` in place.
+    """
+    for r in results:
+        overrides = config.grade_overrides.get(r.student.name)
+        if overrides and r.assignment in overrides:
+            r.grade = overrides.get(r.assignment, r.grade)
+
+
+def check_override(page: Page, config: Config):
+    """set `Page.total_grade_override` if an override value was provided in
+    the config.
+
+    This function mutates `page` in place.
+    """
+    overrides = config.grade_overrides.get(page.student.name)
+    if overrides is not None and 'total' in overrides:
+        page.total_grade_override = overrides['total']
+
+
+def apply_notes(page: Page, config: Config):
+    """Add any notes specified in the config file to the page if provided.
+
+    This function mutates `page` in place.
+    """
+    notes = config.notes.get(page.student.name)
+    if notes is not None:
+        if page.notes is None:
+            page.notes = ''
+        page.notes += '\n' + notes
 
 
 def get_services():
@@ -109,6 +170,8 @@ def week_21_gr_5(classroom, drive, slides):
 
 def main():
     setup_logging()
+    config = load_config()
+    apply_grade_level_overrides(config)
     classroom, drive, slides = get_services()
     print("starting grading")
     results = [
@@ -117,6 +180,8 @@ def main():
         *week_21_gr_5(classroom, drive, slides),
         *week_21(classroom),
     ]
+
+    apply_grade_overrides(results, config)
 
     print("results fetched. finalizing now")
 
@@ -158,6 +223,8 @@ def main():
                 wk_20_grade=cast(Literal[20, 15, 0], assgt_to_result.get("week 20", 0)),
                 wk_21_grade=cast(Literal[20, 15, 0], assgt_to_result.get("week 21", 0)),
             )
+            check_override(page, config)
+            apply_notes(page, config)
 
             try:
                 assert page.wk_19_grade in (20, 15, 10, 0)
@@ -191,6 +258,9 @@ def main():
             ]
         )
 
+    # TODO: not only should this be deduplicated, but I didn't implement the
+    # override.yml for grade totals for the fifth grade. Right now, I don't
+    # have any overrides at all for the fifth grade, so this is not urgent
     writer = DocWriter(type="fifth")
     all_pages = []
     for hr in homerooms:
@@ -221,6 +291,8 @@ def main():
                 ),
                 wk_21_grade=cast(Literal[20, 0], assgt_to_result.get("week 21", 0)),
             )
+            check_override(page, config)
+            apply_notes(page, config)
 
             try:
                 assert page.wk_20_grade in (20, 15, 10, 0)

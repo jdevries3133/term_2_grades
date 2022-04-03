@@ -1,10 +1,7 @@
 import re
 import logging
 
-from teacherhelper import Helper
 
-
-helper = Helper.read_cache()
 logger = logging.getLogger(__name__)
 
 

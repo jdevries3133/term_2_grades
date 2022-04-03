@@ -2,13 +2,11 @@ from abc import ABC, abstractmethod
 import logging
 from typing import Literal
 
-from teacherhelper import Helper
-
 from .google_classroom import GoogleClassroomApiWrapper
 from .entities import GradeResult
+from .teacherhelper_proxy import helper
 
 
-helper = Helper.read_cache()
 logger = logging.getLogger(__name__)
 
 

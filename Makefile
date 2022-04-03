@@ -1,6 +1,9 @@
+WITH_VENV=source venv/bin/activate && 
+
+
 .PHONY: all
 all: setup
-	source venv/bin/activate && python3 -m grader
+	$(WITH_VENV) python3 -m grader
 
 .PHONY: setup
 setup:
@@ -14,7 +17,7 @@ setup:
 
 .PHONY: fmt
 fmt:
-	source venv/bin/activate && black .
+	$(WITH_VENV) black .
 
 .PHONY: clean
 clean:
@@ -22,4 +25,4 @@ clean:
 
 .PHONY: test
 test:
-	pytest
+	$(WITH_VENV) pytest

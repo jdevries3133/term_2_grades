@@ -3,18 +3,15 @@
 import logging
 
 from requests.sessions import Session
-from teacherhelper import Helper
 
 from .google_client import get_credentials, get_service
 from .entities import GradeResult
+from .teacherhelper_proxy import helper
 
 
 logger = logging.getLogger(__name__)
 
 classroom = get_service("classroom", "v1")
-
-
-helper = Helper.read_cache()
 
 
 # I just run this script against the development build running on my laptop so
